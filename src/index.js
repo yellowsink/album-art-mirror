@@ -6,7 +6,7 @@ import encodeJxlRaw, { init as initJxlWasm } from '@jsquash/jxl/encode';
 import JPEG_DEC_WASM from "@jsquash/jpeg/codec/dec/mozjpeg_dec.wasm";
 import PNG_DEC_WASM from '@jsquash/png/codec/pkg/squoosh_png_bg.wasm';
 import WEBP_ENC_WASM from '@jsquash/webp/codec/enc/webp_enc_simd.wasm';
-import JXL_ENC_WASM from '@jsquash/jxl/codec/enc/jxl_enc_mt_simd.wasm';
+import JXL_ENC_WASM from '@jsquash/jxl/codec/enc/jxl_enc.wasm';
 
 let jpeg_inited, png_inited, webp_inited, jxl_inited;
 
@@ -68,45 +68,44 @@ export default {
     const match = url.pathname.match(/^\/(release(?:-group)?)\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(|\.jxl|\.webp)$/);
     if (!match) return new Response('400 Bad Request: URL was not of the form /release{,-group}/mbid{,.webp,.jxl}', { status: 400 });
 
-    const [, entityType, mbid, compType] = match;
+    const [, entityType, mbid, compType_] = match;
+		const compType = compType_.slice(1); // remove `.`
 
 		// check for cache
 		const cacheKey = new Request(`https://a/${entityType}/${mbid}/${compType}`, request);
     const cacheKeyNoComp = new Request(`https://a/${entityType}/${mbid}/`, request);
 
 		let cResp = await caches.default.match(cacheKey);
-		if (cResp) return cResp;
+		if (cResp) {
+			return cResp;
+		}
 
     // ok, this variant not cached, what if we have it in the raw cache?
     let imgRes;
     // yum, isn't that lovely
     if (compType && (imgRes = await caches.default.match(cacheKeyNoComp))) {}
     else {
-			// get the image url from CAA
-			const api = await fetch(`https://coverartarchive.org/${entityType}/${mbid}/front`);
-			if (api.status === 404)
-				return new Response("404 Not Found: Either this release does not exist, or it has no 'front' art.", { status: 404 });
-			if (api.status !== 307)
-				return new Response(`500 Internal Server Error: Unknown response code ${api.status} from CAA API`, { status: 500 });
+			// get the image from CAA / IA
+			imgRes = await fetch(`https://coverartarchive.org/${entityType}/${mbid}/front`);
 
-			// fetch from the IA
-			imgRes = await fetch(api.headers.get('Location'));
+			if (imgRes.status === 404)
+				return new Response("404 Not Found: Either this release does not exist, or it has no 'front' art.", { status: 404 });
 			if (imgRes.status !== 200)
-				return new Response(`500 Internal Server Error: Unknown response code ${api.status} from IA`, { status: 500 });
+				return new Response(`500 Internal Server Error: Unknown response code ${api.status} from CAA API or IA`, { status: 500 });
 		};
 
     // get content type
     const srcType = imgRes.headers.get("Content-Type");
 
     // if compression is requested, do that
-    const finalImg = compType ? await encode(await imgRes.arrayBuffer, srcType, 'image/' + compType) : await imgRes.arrayBuffer;
+    const finalImg = compType ? await encode(await imgRes.arrayBuffer(), srcType, 'image/' + compType) : await imgRes.arrayBuffer();
 
     // send to cache
     const resp = new Response(finalImg, {
 			headers: { 'Content-Type': compType || srcType, 'Cache-Control': 'public, immutable, no-transform, max-age=1814400' },
 		});
 
-    await caches.default.put(cacheKey, resp);
+    await caches.default.put(cacheKey, resp.clone());
 
     return resp;
 	},

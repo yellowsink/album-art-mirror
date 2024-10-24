@@ -5,11 +5,10 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "start": "wrangler dev",
-    "test": "vitest"
+    "start": "wrangler dev"
   },
   "devDependencies": {
-    "wrangler": "^3.82.0"
+    "wrangler": "^3.83.0"
   },
   "dependencies": {
     "@jsquash/jpeg": "^1.4.0",
