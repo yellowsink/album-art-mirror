@@ -9,7 +9,7 @@ export default {
 		const compressed = compTypeRaw === ".webp";
 
 		// check for cache
-		const cacheKey = new Request(`https://a/${entityType}/${mbid}/${compressed}`, request);
+		const cacheKey = new Request(`https://a/${entityType}/${mbid}/${compressed}`);
 
 		let cResp = await caches.default.match(cacheKey);
 		if (cResp) return cResp;
@@ -50,8 +50,8 @@ export default {
 				'Access-Control-Allow-Origin': '*' // sigh
 			},
 		});
-		if (cacheKey.method === 'GET')
-			await caches.default.put(cacheKey, resp.clone());
+
+		await caches.default.put(cacheKey, resp.clone());
 
 		return resp;
 	},
