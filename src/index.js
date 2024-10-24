@@ -44,7 +44,11 @@ export default {
 
 		// send to cache
 		const resp = new Response(finalReq.body, {
-			headers: { 'Content-Type': finalReq.headers.get("Content-Type"), 'Cache-Control': 'public, immutable, no-transform, max-age=1814400' },
+			headers: {
+				'Content-Type': finalReq.headers.get("Content-Type"),
+				'Cache-Control': 'public, immutable, no-transform, max-age=1814400',
+				'Access-Control-Allow-Origin': '*' // sigh
+			},
 		});
 
 		await caches.default.put(cacheKey, resp.clone());
