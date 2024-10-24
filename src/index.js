@@ -50,8 +50,8 @@ export default {
 				'Access-Control-Allow-Origin': '*' // sigh
 			},
 		});
-
-		await caches.default.put(cacheKey, resp.clone());
+		if (cacheKey.method === 'GET')
+			await caches.default.put(cacheKey, resp.clone());
 
 		return resp;
 	},
