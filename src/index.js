@@ -2,11 +2,11 @@ export default {
 	async fetch(request, env, ctx) {
 		// parse URL: should be of the form release{,-group}/mbid{,.webp,.jxl}
 		const url = new URL(request.url.toLowerCase());
-    const match = url.pathname.match(/^\/(release(?:-group)?)\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(|\.webp)$/);
-    if (!match) return new Response('400 Bad Request: URL was not of the form /release{,-group}/mbid{,.webp}', { status: 400 });
+    const match = url.pathname.match(/^\/(release(?:-group)?)\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(|\.webp|\.jxl)$/);
+    if (!match) return new Response('400 Bad Request: URL was not of the form /release{,-group}/mbid{,.webp,.jxl}', { status: 400 });
 
-    const [, entityType, mbid, compTypeRaw] = match;
-		const compressed = compTypeRaw === ".webp";
+		const [, entityType, mbid, compTypeRaw] = match;
+		const compressed = { ".webp": 1, ".jxl": 2 }[compTypeRaw] ?? false;
 
 		// check for cache
 		const cacheKey = new Request(`https://a/${entityType}/${mbid}/${compressed}`);
@@ -28,19 +28,18 @@ export default {
 		// get content type
 		const srcType = imgHead.headers.get("Content-Type");
 
-		// send request again, using cloudflare transform to compress to webp if requested
+		// cloudflare image transforms SUCK so I use cloudinary instead.
+		const cTypeCD = [, "webp", "jxl"][compressed];
+		const qualCD = srcType === "image/jpeg" ? "auto" : 100;
 
-		const finalReq = await fetch(caaUrl, {
-			cf: !compressed ? {} : {
-				image: {
-					quality: srcType === "image/jpeg" ? 90 : 100,
-					format: "webp" // sadly JXL is not supported. AVIF is though.
-				}
-			}
-		});
+		const finalReq = await fetch(
+			compressed
+				? `https://res.cloudinary.com/dqwrj7y4p/image/fetch/f_${cTypeCD}/q_${qualCD}/${caaUrl}`
+				: caaUrl
+		);
 
 		if (!finalReq.ok)
-			return new Response(`500 Internal Server Error: Unknown response code ${finalReq.status} from CAA API or IA`, { status: 500 });
+			return new Response(`500 Internal Server Error: Unknown response code ${finalReq.status} from CAA API, IA, or Cloudinary`, { status: 500 });
 
 		// send to cache
 		const resp = new Response(finalReq.body, {
