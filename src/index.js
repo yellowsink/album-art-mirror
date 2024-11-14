@@ -28,11 +28,36 @@ export default {
 				compressed = 1;
 		}
 
+		// I am using D1 for this as KV is only eventually consistent
+		async function reportCaching(cached) {
+			const k = `${entityType}_${mbid}_${compTypeRaw.slice(1)}`;
+
+			await Promise.all([update(k), update("0_GLOBAL")]);
+
+			async function update(k) {
+				const getStmt = env.AART_CACHE_STATS.prepare("SELECT * FROM hitsbyreq WHERE entity = ?1").bind(k);
+
+				const dbCol = cached ? 'cacheedge' : 'cachenone';
+				const setStmt = env.AART_CACHE_STATS.prepare(`
+					INSERT INTO hitsbyreq (entity, ${dbCol})
+						VALUES(?1, ?2)
+						ON CONFLICT(entity)
+							DO UPDATE SET ${dbCol}=?2`);
+
+				const hitCount = await getStmt.first(dbCol) ?? 0;
+
+				await setStmt.bind(k, hitCount + 1).run();
+			}
+		}
+
 		// check for cache
 		const cacheKey = new Request(`https://a/${entityType}/${mbid}/${compressed}`);
 
 		let cResp = await caches.default.match(cacheKey);
-		if (cResp) return cResp;
+		if (cResp) {
+			await reportCaching(true);
+			return cResp
+		};
 
 		// get the image from CAA / IA
 		const caaUrl = `https://coverartarchive.org/${entityType}/${mbid}/front`;
@@ -77,10 +102,14 @@ export default {
 				"Access-Control-Allow-Origin": "*",
 				"ETag": finalReq.headers.get("ETag"),
 				Vary: "Accept",
+				"X-AART-Cache": "edge",
 			},
 		});
 
 		await caches.default.put(cacheKey, resp.clone());
+
+		resp.headers.set("X-AART-Cache", "none");
+		await reportCaching(false);
 
 		return resp;
 	},
