@@ -91,9 +91,9 @@ export default {
 		);
 
 
-		if (!finalReq.ok) {
+		if (compressed && !finalReq.ok) {
 			// try non-compressed
-			finalReq = await this.fetch(caaUrl);
+			finalReq = await fetch(caaUrl);
 		}
 
 
