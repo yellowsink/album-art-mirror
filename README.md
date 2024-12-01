@@ -16,4 +16,6 @@ You can either download:
 - Converted to JPEG XL
   https://aart.yellows.ink/release/5c034115-4998-4d4b-8f41-c2eab904864b.jxl
 
+Note that the webp/jxl endpoints may occasionally return a png/jpeg *if* cloudinary fails (usually too large of an image)
+
 The webps and jxls will be lossless if the original was a png, else lossy.
