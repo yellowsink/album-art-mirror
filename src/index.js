@@ -30,6 +30,9 @@ export default {
 
 		// I am using D1 for this as KV is only eventually consistent
 		async function reportCaching(cached) {
+
+			return; // this slow af
+
 			const k = `${entityType}_${mbid}_${compTypeRaw.slice(1)}`;
 
 			await Promise.all([update(k), update("0_GLOBAL")]);
@@ -81,11 +84,18 @@ export default {
 		const cTypeCD = [, "webp", "jxl"][compressed];
 		const qualCD = srcType === "image/jpeg" ? "auto" : 100;
 
-		const finalReq = await fetch(
+		let finalReq = await fetch(
 			compressed
 				? `https://res.cloudinary.com/dqwrj7y4p/image/fetch/f_${cTypeCD}/q_${qualCD}/${caaUrl}`
 				: caaUrl
 		);
+
+
+		if (!finalReq.ok) {
+			// try non-compressed
+			finalReq = await this.fetch(caaUrl);
+		}
+
 
 		if (!finalReq.ok)
 			return new Response(
