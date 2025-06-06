@@ -73,7 +73,7 @@ export default {
 			);
 		if (imgHead.status !== 200)
 			return new Response(
-				`500 Internal Server Error: Unknown response code ${api.status} from CAA API or IA`,
+				`500 Internal Server Error: Unknown response code ${imgHead.status} from CAA API or IA`,
 				{ status: 500 }
 			);
 
